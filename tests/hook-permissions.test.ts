@@ -117,11 +117,11 @@ test("tool_call hook runs deterministic hard-deny before classifier", async () =
 
 	const result = await harness.emit("tool_call", {
 		toolName: "write",
-		input: { path: ".pi/automode.local.json", content: "{}" },
+		input: { path: join(os.homedir(), ".zshrc"), content: "{}" },
 	}, harness.ctx) as { block?: boolean; reason?: string };
 
 	assert.equal(result.block, true);
-	assert.match(result.reason ?? "", /safety-control/);
+	assert.match(result.reason ?? "", /shell profile/);
 	assert.equal(harness.classifierCalls, 0);
 });
 
@@ -937,11 +937,11 @@ test("deterministic hard-deny wins over permissions.allow", async () => {
 
 	const result = await harness.emit("tool_call", {
 		toolName: "write",
-		input: { path: ".pi/automode.local.json", content: "{}" },
+		input: { path: join(os.homedir(), ".zshrc"), content: "{}" },
 	}, harness.ctx) as { block?: boolean; reason?: string };
 
 	assert.equal(result.block, true);
-	assert.match(result.reason ?? "", /safety-control/);
+	assert.match(result.reason ?? "", /shell profile/);
 	assert.equal(harness.classifierCalls, 0);
 });
 
@@ -1001,7 +1001,7 @@ test("permissions.allow does not cover protected in-tree writes", async () => {
 			classifier: async () => ({ decision: "block", tier: "soft_deny", reason: "protected hook write" }),
 		});
 
-		for (const path of [".git/hooks/pre-commit", ".pi/project-state.json"]) {
+		for (const path of [".git/hooks/pre-commit", ".npmrc"]) {
 			const blocked = await harness.emit("tool_call", {
 				toolName: "write",
 				input: { path, content: "protected\n" },
@@ -1022,7 +1022,7 @@ test("permissions.allow does not cover protected in-tree writes", async () => {
 	}
 });
 
-test("global Pi extension writes are hard-denied before permissions.allow", async () => {
+test("global Pi extension writes can use permissions.allow", async () => {
 	const pattern = parseToolPattern("write(*)");
 	assert.ok(pattern);
 	const harness = await setupHookTest({
@@ -1038,8 +1038,7 @@ test("global Pi extension writes are hard-denied before permissions.allow", asyn
 		},
 	}, harness.ctx) as { block?: boolean; reason?: string };
 
-	assert.equal(result.block, true);
-	assert.match(result.reason ?? "", /safety-control/);
+	assert.equal(result, undefined);
 	assert.equal(harness.classifierCalls, 0);
 });
 

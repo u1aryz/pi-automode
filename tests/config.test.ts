@@ -236,10 +236,10 @@ test("rollback failure keeps the extension registered and blocks config writes",
 
 		const blocked = await fake.emit("tool_call", {
 			toolName: "write",
-			input: { path: ".pi/automode.local.json", content: "{}\n" },
+			input: { path: join(os.homedir(), ".zshrc"), content: "{}\n" },
 		}, ctx) as { block?: boolean; reason?: string };
 		assert.equal(blocked.block, true);
-		assert.match(blocked.reason ?? "", /safety-control/);
+		assert.match(blocked.reason ?? "", /shell profile/);
 	} finally {
 		rmSync(dir, { recursive: true, force: true });
 	}

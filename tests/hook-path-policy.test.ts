@@ -830,7 +830,7 @@ test("writes through symlink loops still go to the classifier", async () => {
 	}
 });
 
-test("write through a symlink to an in-tree safety-control file is hard-denied before classification", async () => {
+test("write through a symlink to an in-tree auto-mode file reaches classification", async () => {
 	const project = mkdtempSync(join(os.tmpdir(), "pi-automode-project-"));
 	try {
 		const safetyControl = join(project, "auto-mode-policy.ts");
@@ -843,9 +843,8 @@ test("write through a symlink to an in-tree safety-control file is hard-denied b
 			input: { path: "ordinary.ts", content: "disabled\n" },
 		}, harness.ctx) as { block?: boolean; reason?: string };
 
-		assert.equal(result.block, true);
-		assert.match(result.reason ?? "", /safety-control/);
-		assert.equal(harness.classifierCalls, 0);
+		assert.equal(result, undefined);
+		assert.equal(harness.classifierCalls, 1);
 	} finally {
 		rmSync(project, { recursive: true, force: true });
 	}
@@ -936,4 +935,72 @@ test("cross-project write to protected path triggers classifier", async () => {
 		rmSync(projectA, { recursive: true, force: true });
 		rmSync(projectB, { recursive: true, force: true });
 	}
+});
+
+test("Pi configuration uses ordinary classifier and in-tree allow routing", async () => {
+	const project = mkdtempSync(join(os.tmpdir(), "pi-automode-routing-"));
+	try {
+		const settingsPath = join(project, ".pi/settings.json");
+		mkdirSync(join(project, ".pi"));
+		writeFileSync(settingsPath, "{}");
+		symlinkSync(settingsPath, join(project, "settings-link"));
+		assert.equal(matchesProtectedPath(".pi/settings.json", DEFAULT_PROTECTED_PATHS), false);
+		for (const allowInsideWorkingDirectory of [false, true]) {
+			const harness = await setupHookTest({
+				ctx: createFakeCtx([], { cwd: project }),
+				config: baseConfig({ allowInsideWorkingDirectory }),
+			});
+			for (const toolName of ["write", "edit"]) {
+				for (const path of [".pi/settings.json", settingsPath, "settings-link"]) {
+					const result = await harness.emit("tool_call", {
+						toolName,
+						input: { path, content: "{}" },
+					}, harness.ctx);
+					assert.equal(result, undefined);
+				}
+			}
+			const expectedFileClassifications = allowInsideWorkingDirectory ? 0 : 6;
+			assert.equal(harness.classifierCalls, expectedFileClassifications);
+			const bashResult = await harness.emit("tool_call", {
+				toolName: "bash",
+				input: { command: "echo '{}' > .pi/automode.local.json" },
+			}, harness.ctx);
+			assert.equal(bashResult, undefined);
+			assert.equal(harness.classifierCalls, expectedFileClassifications + 1);
+		}
+		const rejecting = await setupHookTest({
+			ctx: createFakeCtx([], { cwd: project }),
+			classifier: async () => ({ decision: "block", tier: "soft_deny", reason: "unrelated risk" }),
+		});
+		const result = await rejecting.emit("tool_call", {
+			toolName: "edit",
+			input: { path: ".pi/settings.json" },
+		}, rejecting.ctx) as { block: boolean };
+		assert.equal(result.block, true);
+		assert.equal(rejecting.classifierCalls, 1);
+	} finally {
+		rmSync(project, { recursive: true, force: true });
+	}
+});
+
+test("explicit Pi path deny, ask, and protectedPaths settings still apply", async () => {
+	for (const settings of [
+		{ permissions: { deny: ["write(.pi/settings.json)"] } },
+		{ permissions: { ask: ["write(.pi/settings.json)"] } },
+		{ autoMode: { deniedPaths: ["*/.pi/*"] } },
+	]) {
+		const ctx = createFakeCtx([]);
+		ctx.ui.confirm = async () => false;
+		const harness = await setupHookTest({
+			ctx,
+			config: buildEffectiveConfigFromSources({ globalSettings: [settings] }),
+		});
+		const result = await harness.emit("tool_call", {
+			toolName: "write",
+			input: { path: ".pi/settings.json", content: "{}" },
+		}, harness.ctx) as { block: boolean };
+		assert.equal(result?.block, true, JSON.stringify(settings));
+		assert.equal(harness.classifierCalls, 0);
+	}
+	assert.equal(matchesProtectedPath(".pi/settings.json", [".pi"]), true);
 });

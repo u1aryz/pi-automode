@@ -51,7 +51,9 @@ These are exceptions to `soft_deny`, not to `hard_deny`.
 
 The value `allowInsideWorkingDirectory: true` sends non-protected in-tree file access to the deterministic allow tier. Writes and edits to protected paths still reach the classifier. Classifier `allow` rules cannot override a classifier hard-deny decision.
 
-Protected directories: `.git`, `.config/git`, `.vscode`, `.idea`, `.husky`, `.cargo`, `.devcontainer`, `.yarn`, `.mvn`, `.pi`.
+Pi settings and pi-automode files are ordinary task files, not built-in protected or hard-denied targets. Changes to agent guardrail settings and implementation are not inherently security-control weakening; other risks and explicitly configured rules still apply.
+
+Protected directories: `.git`, `.config/git`, `.vscode`, `.idea`, `.husky`, `.cargo`, `.devcontainer`, `.yarn`, `.mvn`.
 
 Protected files include:
 
@@ -108,7 +110,7 @@ Soft blocks can be overridden by a matching `allow` exception or direct user int
 - granting admin, owner, IAM, RBAC, repository, or production access
 - exfiltrating repository contents, secrets, credentials, private keys, tokens, or internal data to untrusted places
 - scanning for credentials, tokens, private keys, or secrets beyond what the task requires
-- tampering with logs, audit trails, security monitoring, permission rules, auto-mode configuration, or safety-control files
+- tampering with logs, audit trails, or security monitoring
 - creating services, endpoints, workflows, or autonomous agents that execute arbitrary code without meaningful approval
 - posting or updating public/external content that is fabricated, misleading, impersonating a user, or claiming approval/action that did not happen
 

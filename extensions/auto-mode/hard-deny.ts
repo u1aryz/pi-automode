@@ -10,7 +10,6 @@ import {
 import { HOME } from "./constants.ts";
 import {
   isProfileOrAuthorizedKeysPath,
-  isSafetyControlPath,
   resolveInputPath,
   resolvePathForPolicy,
   shellPathTokenToPath,
@@ -236,9 +235,6 @@ function segmentHardDeny(
     if (!path) continue;
     const profileReason = isProfileOrAuthorizedKeysPath(path);
     if (profileReason) return profileReason;
-    if (isSafetyControlPath(path, cwd)) {
-      return "auto-mode or permission safety-control modification is hard-denied";
-    }
   }
 
   for (const word of segment.words) {
@@ -356,29 +352,6 @@ function segmentHardDeny(
     }
   }
 
-  if (
-    [
-      "tee",
-      "mv",
-      "cp",
-      "rm",
-      "unlink",
-      "truncate",
-      "python",
-      "python3",
-      "node",
-      "perl",
-      "ruby",
-      "sd",
-      "sed",
-    ].includes(name) &&
-    /\.pi\/automode|\.pi\/extensions|pi-automode|auto-mode\.json/i.test(
-      segment.raw,
-    )
-  ) {
-    return "auto-mode or permission safety-control modification is hard-denied";
-  }
-
   return undefined;
 }
 
@@ -398,12 +371,8 @@ export function deterministicHardDeny(
     const path = resolveInputPath(cwd, input.path);
     if (!path) return undefined;
     const policyPath = resolvePathForPolicy(path) ?? path;
-    const policyCwd = resolvePathForPolicy(cwd) ?? cwd;
     const profileReason = isProfileOrAuthorizedKeysPath(policyPath);
     if (profileReason) return profileReason;
-    if (isSafetyControlPath(path, policyCwd)) {
-      return "auto-mode or permission safety-control modification is hard-denied";
-    }
   }
 
   if (toolName !== "bash") return undefined;
@@ -417,9 +386,6 @@ export function deterministicHardDeny(
     if (!path) continue;
     const profileReason = isProfileOrAuthorizedKeysPath(path);
     if (profileReason) return profileReason;
-    if (isSafetyControlPath(path, cwd)) {
-      return "auto-mode or permission safety-control modification is hard-denied";
-    }
   }
   for (const segment of analysis.commands) {
     const reason = segmentHardDeny(segment, cwd);

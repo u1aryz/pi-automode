@@ -106,7 +106,8 @@ The extension blocks these before any allow or classifier decision:
 - cron, launch agent, and system service persistence
 - TLS/certificate/auth weakening patterns
 - root, home, and system-path destructive deletes. Subtrees of validated launcher-declared temp directories are treated as disposable. Declared roots that alias `HOME`, `/`, or a system root, or that contain `HOME`, are rejected instead.
-- edits to `.pi/automode*`, `.pi` auto-mode files, and this extension's safety-control files
+
+Pi settings, auto-mode configuration, agent permission rules, and this extension's source repository have no built-in self-protection. Changes to them follow ordinary policy evaluation, including explicit user deny/ask rules and unrelated safety checks. `.pi` is not a default protected path; users may explicitly protect it. This does not guarantee every configuration edit is allowed.
 
 After these checks, pi-automode applies `permissions.allow`. Protected `write` and `edit` targets continue to the classifier.
 
@@ -174,7 +175,7 @@ The tests cover these safety-sensitive areas:
 - `$defaults` behavior
 - deterministic hard-deny checks and Bash AST analysis
 - classifier routing for `write` and `edit`
-- symlink-aware safety-control checks
+- symlink-aware shell-profile and SSH authorization checks
 - token-budgeted transcript selection
 - staged classifier parsing and cache behavior
 - hook-level allow and block behavior

@@ -46,7 +46,7 @@ The value `allowInsideWorkingDirectory: true` allows access to paths inside the 
 
 This tier takes precedence over `classifyReadOnlyTools`. If both configuration fields are enabled, pi-automode still allows in-tree file access locally. `classifyReadOnlyTools: true` does not change this behavior.
 
-Protected in-tree targets do not use this allow tier. Writes and edits to `.git/hooks`, `.pi` controls, shell profiles, and configuration files still reach the classifier.
+Protected in-tree targets do not use this allow tier. Writes and edits to `.git/hooks`, shell profiles, and configuration files still reach the classifier.
 
 `deniedPaths` is a list of path glob patterns. The default list is `[]`. A matching pattern blocks a file-tool call before classifier review or an allow tier.
 

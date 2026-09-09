@@ -4,69 +4,60 @@ import { join, resolve } from "node:path";
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+	AUTO_MODE_GUIDANCE,
+	CLASSIFIER_SYSTEM_PROMPT,
+	DEFAULT_HARD_DENY,
 	deterministicHardDeny,
 	isRootHomeOrSystemPath,
 	tempRootCandidates,
 } from "../extensions/auto-mode.ts";
 
-test("deterministic hard deny catches safety-control edits", () => {
-	const cwd = "/tmp/project";
-	assert.match(
-		deterministicHardDeny("write", { path: ".pi/automode.local.json" }, cwd) ?? "",
-		/safety-control/,
-	);
-	assert.match(
-		deterministicHardDeny("bash", { command: "echo test >> ~/.zshrc" }, cwd) ?? "",
-		/shell profile/,
-	);
-});
-
-test("deterministic hard deny protects global Pi extensions and settings", () => {
-	const agentDir = join(os.homedir(), ".pi/agent");
+test("Pi settings and extension sources have no built-in hard deny", () => {
+	const cwd = "/tmp/pi-automode";
 	for (const path of [
-		join(agentDir, "extensions/auto-mode.ts"),
-		join(agentDir, "extensions/pi-automode/config.json"),
-		join(os.homedir(), ".PI/AGENT/EXTENSIONS/auto-mode.ts"),
-		join(agentDir, "settings.json"),
-		join(agentDir, "settings/providers.json"),
+		".pi/automode.local.json",
+		".pi/automode.json",
+		".pi/settings.json",
+		"auto-mode.json",
+		"extensions/auto-mode.ts",
+		"src/index.ts",
+		join(os.homedir(), ".pi/agent/settings.json"),
+		join(os.homedir(), ".pi/agent/extensions/pi-automode/config.json"),
+		join(os.homedir(), ".pi/agent/extensions/other.ts"),
+		join(os.homedir(), ".pi/agent/settings/providers.json"),
 	]) {
-		assert.match(
-			deterministicHardDeny("write", { path }, "/tmp/project") ?? "",
-			/safety-control/,
-			path,
-		);
+		for (const tool of ["write", "edit"]) {
+			assert.equal(deterministicHardDeny(tool, { path }, cwd), undefined, path);
+			assert.equal(
+				deterministicHardDeny(tool, { path: resolve(cwd, path) }, cwd),
+				undefined,
+				path,
+			);
+		}
+		for (const command of [
+			`printf '{}' > "${path}"`,
+			`echo '{}' | tee "${path}"`,
+			`cp source "${path}"`,
+			`rm "${path}"`,
+			`sed -i '' "${path}"`,
+		]) {
+			assert.equal(deterministicHardDeny("bash", { command }, cwd), undefined, command);
+		}
 	}
-	assert.match(
-		deterministicHardDeny(
-			"edit",
-			{ path: join(agentDir, "settings.json") },
-			"/tmp/project",
-		) ?? "",
-		/safety-control/,
-	);
-
-	assert.equal(
-		deterministicHardDeny(
-			"write",
-			{ path: "/tmp/project/src/app.ts" },
-			"/tmp/project",
-		),
-		undefined,
-	);
 });
 
-test("deterministic hard deny resolves symlinks to global Pi extensions", () => {
+test("symlinks to Pi extension files have no built-in hard deny", () => {
 	const project = mkdtempSync(join(os.tmpdir(), "pi-automode-global-extension-link-"));
 	try {
 		const link = join(project, "linked-extensions");
 		symlinkSync(join(os.homedir(), ".pi/agent/extensions"), link);
-		assert.match(
-			deterministicHardDeny(
-				"write",
-				{ path: join(link, "auto-mode.ts") },
-				project,
-			) ?? "",
-			/safety-control/,
+		const path = join(link, "auto-mode.ts");
+		for (const tool of ["write", "edit"]) {
+			assert.equal(deterministicHardDeny(tool, { path }, project), undefined);
+		}
+		assert.equal(
+			deterministicHardDeny("bash", { command: `echo x > "${path}"` }, project),
+			undefined,
 		);
 	} finally {
 		rmSync(project, { recursive: true, force: true });
@@ -97,10 +88,7 @@ test("shell parsing catches risky suffixes, redirects, and quoted HOME targets",
 		deterministicHardDeny("bash", { command: 'echo key > "$HOME/.ssh/authorized_keys"' }, process.cwd()) ?? "",
 		/authorized_keys/,
 	);
-	assert.match(
-		deterministicHardDeny("bash", { command: "echo nope | tee .pi/automode.local.json" }, "/tmp/project") ?? "",
-		/safety-control/,
-	);
+	assert.equal(deterministicHardDeny("bash", { command: "echo nope | tee .pi/automode.local.json" }, "/tmp/project"), undefined);
 });
 
 test("AST hard-deny checks inspect nested and background commands", () => {
@@ -244,8 +232,6 @@ test("AST hard-deny checks exempt OS temp-directory subtrees", () => {
 	);
 
 	// Deleting a temp directory created with mktemp/mkdtemp is routine cleanup.
-	// Prefix avoids the separate "pi-automode" substring safety-control deny so
-	// this test exercises only the temp-root logic.
 	const created = mkdtempSync(join(os.tmpdir(), "automode-temp-subtree-"));
 	try {
 		assert.equal(
@@ -504,4 +490,11 @@ test("AST hard-deny applies temp policy to find -delete roots", () => {
 		deterministicHardDeny("bash", { command: "find /tmp -delete" }, process.cwd()) ?? "",
 		/system-wide delete/,
 	);
+});
+
+test("classifier defaults explicitly treat Pi controls as ordinary task files", () => {
+	assert.ok(DEFAULT_HARD_DENY.includes("Tampering with logs, audit trails, or security monitoring."));
+	assert.ok(!DEFAULT_HARD_DENY.some((rule) => /auto-mode configuration|agent's safety controls|permission rules/.test(rule)));
+	assert.match(CLASSIFIER_SYSTEM_PROMPT, /including changing agent guardrail settings or implementation, is not by itself security-control weakening or tampering/);
+	assert.match(AUTO_MODE_GUIDANCE, /may be edited as ordinary task files/);
 });

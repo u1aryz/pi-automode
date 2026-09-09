@@ -118,7 +118,7 @@ List fields such as `allow`, `soft_deny`, `hard_deny`, `environment`, and `prote
 
 ## Context captured before classification
 
-On `before_agent_start`, the extension appends `AUTO_MODE_GUIDANCE` to the system prompt. This text states that auto mode is active. It also prohibits bypasses or weaker controls.
+On `before_agent_start`, the extension appends `AUTO_MODE_GUIDANCE` to the system prompt. This text states that auto mode is active and treats Pi settings, agent permission configuration, and this extension's source files as ordinary task files. Destructive, external, production, or irreversible actions still require direct and specific user intent.
 
 The same hook extracts context files from Pi's `systemPromptOptions.contextFiles`. The extracted text becomes `loadedContext`. Pi-automode formats each context file as follows:
 
@@ -189,7 +189,6 @@ Current deterministic blocks include these actions:
 
 - writes to shell profile files
 - writes to `~/.ssh/authorized_keys`
-- edits to auto-mode or Pi permission safety-control files
 - weaker TLS or certificate verification
 - persistence changes such as cron jobs, launch agents, and system service enablement
 - dangerous recursive deletes of root, home, or system paths
@@ -223,7 +222,7 @@ By default, both fields are off and `permissions.allow` is empty. Thus, every wr
 
 ## Protected paths
 
-The protected-path configuration identifies safety-sensitive targets. Examples include `.git`, `.pi`, editor directories, shell profiles, package-manager files, and hook files.
+The protected-path configuration identifies safety-sensitive targets. Examples include `.git`, editor directories, shell profiles, package-manager files, and hook files.
 
 By default, every write and edit reaches the classifier. Thus, no direct-write allow path can bypass classifier policy.
 
@@ -231,7 +230,7 @@ Two optional features add a direct-write path for non-protected targets. `allowI
 
 Both features keep protected targets on the classifier route. `deniedPaths` can block these targets before classifier review.
 
-Deterministic safety-control checks still resolve paths canonically before classification. This catches writes through symlinks to auto-mode controls, shell profiles, and SSH authorization files without relying on the model.
+Deterministic file-write checks still resolve paths canonically before classification. This catches writes through symlinks to shell profiles and SSH authorization files without relying on the model.
 
 ## What is sent to the classifier
 

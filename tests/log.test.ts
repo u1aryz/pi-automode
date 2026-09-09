@@ -404,7 +404,7 @@ test("tool_call logs direct in-project writes as classifier decisions", async ()
 test("tool_call logs deterministic hard-deny blocks", async () => {
 	const t = await setupLogTest();
 	try {
-		await t.fake.emit("tool_call", { toolName: "write", input: { path: ".pi/automode.local.json", content: "{}" } }, t.ctx);
+		await t.fake.emit("tool_call", { toolName: "write", input: { path: join(os.homedir(), ".zshrc"), content: "{}" } }, t.ctx);
 		const entry = JSON.parse(readFileSync(t.logPath, "utf8").trim());
 		assert.equal(entry.type, "decision");
 		assert.equal(entry.outcome, "block");

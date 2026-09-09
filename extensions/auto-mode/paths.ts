@@ -231,49 +231,6 @@ export function isProtectedPath(
   return false;
 }
 
-export function isSafetyControlPath(path: string, cwd: string): boolean {
-  const lexicalPath = resolve(path);
-  const policyPath = resolvePathForPolicy(path) ?? lexicalPath;
-  const policyCwd = resolvePathForPolicy(cwd) ?? resolve(cwd);
-  const normalized = normalizeProtectedPathForMatch(policyPath);
-  const file = basename(normalized);
-  const piAgentRoot = normalizeProtectedPathForMatch(
-    resolve(HOME, ".pi/agent"),
-  );
-  const globalExtensions = `${piAgentRoot}/extensions`;
-  const globalSettings = `${piAgentRoot}/settings`;
-  const isGlobalPiControlPath = (candidate: string): boolean => {
-    const normalizedCandidate = normalizeProtectedPathForMatch(candidate);
-    return normalizedCandidate === `${piAgentRoot}/settings.json` ||
-      normalizedCandidate === globalExtensions ||
-      normalizedCandidate.startsWith(`${globalExtensions}/`) ||
-      normalizedCandidate === globalSettings ||
-      normalizedCandidate.startsWith(`${globalSettings}/`);
-  };
-  if (
-    isGlobalPiControlPath(lexicalPath) || isGlobalPiControlPath(policyPath)
-  ) {
-    return true;
-  }
-  if (
-    normalized.endsWith("/.pi/auto-mode.json") ||
-    normalized.endsWith("/auto-mode.json")
-  ) {
-    return true;
-  }
-  if (normalized.includes("/.pi/extensions/") && file.includes("auto")) {
-    return true;
-  }
-  if (normalized.includes("/.pi/") && file.startsWith("automode")) return true;
-  if (
-    normalized.includes("/pi-automode/") ||
-    (isInside(policyPath, policyCwd) && file.includes("auto-mode"))
-  ) {
-    return true;
-  }
-  return false;
-}
-
 export function shellPathTokenToPath(
   token: string,
   cwd: string,
