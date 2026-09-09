@@ -232,7 +232,8 @@ export function isProtectedPath(
 }
 
 export function isSafetyControlPath(path: string, cwd: string): boolean {
-  const policyPath = resolvePathForPolicy(path) ?? resolve(path);
+  const lexicalPath = resolve(path);
+  const policyPath = resolvePathForPolicy(path) ?? lexicalPath;
   const policyCwd = resolvePathForPolicy(cwd) ?? resolve(cwd);
   const normalized = normalizeProtectedPathForMatch(policyPath);
   const file = basename(normalized);
@@ -241,12 +242,16 @@ export function isSafetyControlPath(path: string, cwd: string): boolean {
   );
   const globalExtensions = `${piAgentRoot}/extensions`;
   const globalSettings = `${piAgentRoot}/settings`;
+  const isGlobalPiControlPath = (candidate: string): boolean => {
+    const normalizedCandidate = normalizeProtectedPathForMatch(candidate);
+    return normalizedCandidate === `${piAgentRoot}/settings.json` ||
+      normalizedCandidate === globalExtensions ||
+      normalizedCandidate.startsWith(`${globalExtensions}/`) ||
+      normalizedCandidate === globalSettings ||
+      normalizedCandidate.startsWith(`${globalSettings}/`);
+  };
   if (
-    normalized === `${piAgentRoot}/settings.json` ||
-    normalized === globalExtensions ||
-    normalized.startsWith(`${globalExtensions}/`) ||
-    normalized === globalSettings ||
-    normalized.startsWith(`${globalSettings}/`)
+    isGlobalPiControlPath(lexicalPath) || isGlobalPiControlPath(policyPath)
   ) {
     return true;
   }

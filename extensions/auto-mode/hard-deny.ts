@@ -401,7 +401,7 @@ export function deterministicHardDeny(
     const policyCwd = resolvePathForPolicy(cwd) ?? cwd;
     const profileReason = isProfileOrAuthorizedKeysPath(policyPath);
     if (profileReason) return profileReason;
-    if (isSafetyControlPath(policyPath, policyCwd)) {
+    if (isSafetyControlPath(path, policyCwd)) {
       return "auto-mode or permission safety-control modification is hard-denied";
     }
   }
